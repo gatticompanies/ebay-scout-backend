@@ -1,24 +1,4 @@
-
-        location: item.itemLocation?.city ? `${item.itemLocation.city}, ${item.itemLocation.stateOrProvince || ""}` : "USA",
-                  image: item.image?.imageUrl || null,
-                  sellThrough: estimateSellThrough(item),
-                  avgDaysToSell: estimateDaysToSell(item),
-                  riskLevel,
-                  weight: estimateWeight(item),
-                  url: item.itemWebUrl,
-                  seller: {
-                    name: item.seller?.username || "-",
-                                feedback: item.seller?.feedbackPercentage || "-",
-                                score: item.seller?.feedbackScore || 0,
-                      },
-        notes: generateNotes(item, riskLevel),
-          };
-});
-
-    items.sort((a, b) => b.sellThrough - a.sellThrough);
-    res.json({ items, total: data.total || items.length });
-} catch (err) {
-      console.erroconst express = require("express");
+const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
 
@@ -30,7 +10,7 @@ const EBAY_CLIENT_ID = process.env.EBAY_CLIENT_ID;
 const EBAY_CLIENT_SECRET = process.env.EBAY_CLIENT_SECRET;
 
 let cachedToken = null;
-let tokenExpiry = 0;
+ tokenExpiry = 0;
 
 async function getAccessToken() {
   if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
