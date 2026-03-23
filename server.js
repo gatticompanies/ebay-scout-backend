@@ -1,4 +1,24 @@
-const express = require("express");
+
+        location: item.itemLocation?.city ? `${item.itemLocation.city}, ${item.itemLocation.stateOrProvince || ""}` : "USA",
+                  image: item.image?.imageUrl || null,
+                  sellThrough: estimateSellThrough(item),
+                  avgDaysToSell: estimateDaysToSell(item),
+                  riskLevel,
+                  weight: estimateWeight(item),
+                  url: item.itemWebUrl,
+                  seller: {
+                    name: item.seller?.username || "-",
+                                feedback: item.seller?.feedbackPercentage || "-",
+                                score: item.seller?.feedbackScore || 0,
+                      },
+        notes: generateNotes(item, riskLevel),
+          };
+});
+
+    items.sort((a, b) => b.sellThrough - a.sellThrough);
+    res.json({ items, total: data.total || items.length });
+} catch (err) {
+      console.erroconst express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
 
@@ -36,9 +56,11 @@ app.get("/search", async (req, res) => {
   try {
     const { q, budget, limit = 10 } = req.query;
     if (!q) return res.status(400).json({ error: "query param 'q' required" });
+
     const token = await getAccessToken();
     const filters = ["priceCurrency:USD"];
     if (budget) filters.push(`price:[..${budget}]`);
+
     const params = new URLSearchParams({ q, limit, sort: "newlyListed", filter: filters.join(",") });
     const ebayRes = await fetch(
       `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
@@ -50,8 +72,10 @@ app.get("/search", async (req, res) => {
         },
       }
     );
+
     const data = await ebayRes.json();
     if (!data.itemSummaries) return res.json({ items: [], total: 0 });
+
     const items = data.itemSummaries.map((item) => {
       const price = parseFloat(item.price?.value || 0);
       const condition = item.condition || "Unknown";
@@ -73,13 +97,14 @@ app.get("/search", async (req, res) => {
         weight: estimateWeight(item),
         url: item.itemWebUrl,
         seller: {
-          name: item.seller?.username || "—",
-          feedback: item.seller?.feedbackPercentage || "—",
+          name: item.seller?.username || "-",
+          feedback: item.seller?.feedbackPercentage || "-",
           score: item.seller?.feedbackScore || 0,
         },
         notes: generateNotes(item, riskLevel),
       };
     });
+
     items.sort((a, b) => b.sellThrough - a.sellThrough);
     res.json({ items, total: data.total || items.length });
   } catch (err) {
@@ -100,8 +125,8 @@ function getTimeLeft(endDateStr) {
 function estimateSellThrough(item) {
   let score = 70;
   const title = item.title?.toLowerCase() || "";
-  if (["dewalt","milwaukee","apple","samsung","sony","iphone","dyson","nike"].some(k => title.includes(k))) score += 15;
-  if (["lot","bundle","bulk","wholesale","liquidation"].some(k => title.includes(k))) score += 5;
+  if (["dewalt", "milwaukee", "apple", "samsung", "sony", "iphone", "dyson", "nike"].some(k => title.includes(k))) score += 15;
+  if (["lot", "bundle", "bulk", "wholesale", "liquidation"].some(k => title.includes(k))) score += 5;
   if (item.bidCount > 10) score += 8;
   if (item.bidCount > 20) score += 5;
   return Math.min(score, 99);
@@ -110,4 +135,37 @@ function estimateSellThrough(item) {
 function estimateRisk(item, condition) {
   const cond = condition.toLowerCase();
   if (cond.includes("new") || cond.includes("sealed")) return "low";
-  if (cond.includes
+  if (cond.includes("parts") || cond.includes("broken")) return "high";
+  if (item.seller?.feedbackPercentage && parseFloat(item.seller.feedbackPercentage) < 95) return "high";
+  return "medium";
+}
+
+function getValueMultiplier(item) {
+  const title = item.title?.toLowerCase() || "";
+  if (title.includes("new") || title.includes("sealed")) return 1.4;
+  if (title.includes("used")) return 1.1;
+  return 1.25;
+}
+
+function estimateDaysToSell(item) {
+  const st = estimateSellThrough(item);
+  if (st > 85) return "1-3 days";
+  if (st > 70) return "4-7 days";
+  return "7-14 days";
+}
+
+function estimateWeight(item) {
+  const title = item.title?.toLowerCase() || "";
+  if (["iphone", "phone", "watch"].some(k => title.includes(k))) return "0.5 lbs";
+  if (["drill", "tool", "shoes"].some(k => title.includes(k))) return "3-5 lbs";
+  return "2 lbs";
+}
+
+function generateNotes(item, risk) {
+  if (risk === "high") return "Check photos for damage/parts only.";
+  if (item.bidCount > 15) return "High demand item, watch bidding.";
+  return "Standard market value scout.";
+}
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
